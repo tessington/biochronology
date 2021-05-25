@@ -3,7 +3,7 @@ require(rstan)
 require(KernSmooth)
 
 
-plotfilename <- "CompareBCtoVB.pdf"
+plotfilename <- "Graphics/CompareBCtoVB.pdf"
 pdf(file = plotfilename, height = 3.5, width = 7)
 
 load("Outputs/YFS_result.Rdata")
@@ -16,7 +16,7 @@ tzero.male <- -0.111
 Linf.female <- 37.8 
 k.female <- 0.237
 tzero.female <- 0.112
-ages <- 2:34
+ages <- 2:60
 Lstart.male  <- Linf.male * (1- exp(-(ages - tzero.male)*k.male))
 Lstart.female  <- Linf.female * (1- exp(-(ages - tzero.female)*k.female))
 
@@ -39,20 +39,28 @@ plot(x = ages,
      lwd = 2,
      col = "black",
      xlim = c(0,35),
-     ylim = c(0, 40),
+     ylim = c(0, 50),
      ylab = "Length (cm)",
      xlab = "Age (years)")
 lines(x = ages, y = Lstart.female, lwd = 2)
 
-# scale the two so it makes sense.  scaling to size at age 30
+par(new = TRUE)
 h <- (Lstart.male[30]/wstart[30])
 w.scaled <- wstart * (Lstart.male[30]/wstart[30])
-lines(x = ages, y = w.scaled, lwd = 2, col = "gray")
-w.ticks <- seq(from = 0, to = 1.5, by = 0.25)
-axis( side = 4, at = w.ticks *h, labels = w.ticks )
-mtext(side = 4, text = "Otolith width (cm)", las = 0, line = 3)
+plot(x = ages, y = wstart, type = "l",
+     lwd = 2, col = "gray", xlab = "", ylab = "", xlim = c(0, 35),
+     ylim = c(0, 1.5), axes = F, )
 
-# repeat for pacicic ocean pearch
+w.ticks <- seq(from = 0, to = 1.5, by = 0.25)
+axis(side = 4, at = w.ticks, labels = w.ticks)
+mtext(side = 4, text = "Otolith width (cm)", las = 0, line = 3)
+# finally, save as dataframe for later use
+df <- as.data.frame(cbind(ages, Lstart.male, wstart))
+saveRDS(object = df, file = "Outputs/YFS_length_otolith.RDS")
+
+
+par(new = FALSE)
+# repeat for pacific ocean pearch
 spc <- "POP"
 
   load("Outputs/POP_result.Rdata")
@@ -61,7 +69,7 @@ spc <- "POP"
 Linf <- 41.55
 k <-  0.14
 tzero <- -1.317
-ages <- 2:83
+ages <- 2:180
 Lstart  <- Linf * (1- exp(-(ages - tzero)*k))
 q.bar <- median(output$q_base)
 k.bar <- median(output$k_base)
@@ -80,18 +88,20 @@ plot(x = ages,
      lwd = 2,
      col = "black",
      xlim = c(0,80),
-     ylim = c(0, 80),
+     ylim = c(0, 50),
      ylab = "Length (cm)",
      xlab = "Age (years)")
 
-# scale the two so it makes sense to plot on the same graph.  scaling to size at age 30
-h <- (Lstart[30]/wstart[30])
-w.scaled <- wstart * (Lstart[30]/wstart[30])
-lines(x = ages, y = w.scaled, lwd = 2, col = "gray")
-# make the second y axis, based on scaling
+par(new = TRUE)
+plot(x = ages, y = wstart, type = "l", lwd = 2, col = "gray", xlab = "", ylab = "", xlim = c(0, 80),
+     ylim = c(0, 1.5), axes = F)
 w.ticks <- seq(from = 0, to = 1.5, by = 0.25)
-axis( side = 4, at = w.ticks *h, labels = w.ticks )
+axis(side = 4, at = w.ticks, labels = w.ticks)
 mtext(side = 4, text = "Otolith width (cm)", las = 0, line = 3)
+df <- as.data.frame(cbind(ages, Lstart, wstart))
+saveRDS(object = df, file = "Outputs/POP_length_otolith.RDS")
+par(new = FALSE)
+
 
 
 

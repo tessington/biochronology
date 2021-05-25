@@ -3,6 +3,16 @@ require(KernSmooth)
 require(viridis)
 
 ####### Plotting Function #####
+
+interp.fun <- function(win, df) {
+  df$h.at.age <- df$Lstart / df$wstart
+  # find the right row
+  index <- which(df$wstart>=win)[1]
+  if (is.na(index)) h.predict <- df$h.at.age[nrow(df)]
+  if (!is.na(index)) h.predict <- approx(x = df$wstart[c(index-1, index)], y = df$h.at.age[c(index-1, index)], xout = win)$y
+  return(h.predict)
+}
+
 make.plot <-
   function(spc,
            output,
@@ -13,7 +23,8 @@ make.plot <-
            ages.2.use,
            legend.text,
            legend.pos,
-           years.2.trim = 10) {
+           years.2.trim = 10, 
+           age.ref) {
  require(dplyr)
     
        output <- extract(model.stan)
@@ -23,6 +34,7 @@ make.plot <-
       k <-  0.14
       tzero <- -1.317
       ages <- 2:90
+      df <- readRDS("Outputs/POP_length_otolith.RDS")
     }
     
     if (spc == "YFS") {
@@ -30,8 +42,10 @@ make.plot <-
       k <- 0.151
       tzero <- -0.111
       ages <- 2:35
+      df <- readRDS("Outputs/YFS_length_otolith.RDS")
       
     }
+    df$h.at.age <- df$Lstart / df$wstart
     
     # extract median qbar, kbar
     q.bar <- median(output$q_base)
@@ -48,43 +62,50 @@ make.plot <-
     rm(output)
     q.t <- q.bar * exp(eps.q)
     winf.bar <- q.bar / k.bar
-    h <- Linf / winf.bar
+    
+    
+    h.at.age <- df$Lstart / df$wstart
     winf.t <- q.t / k.bar
-    Linf.t <- winf.t * h
+  
     
     
     # make a matrix of size at age, where rows are ages, columns are ages
-    n.years <- length(Linf.t)
+    n.years <- length(winf.t)
     n.ages <- length(ages)
     
-    output <- matrix(data = NA,
+    woutput <- matrix(data = NA,
                      nrow = n.ages,
                      ncol = n.years)
-    l.t.start <- rep(x = NA, times = n.ages)
-    l.t.start[1] <- Linf * (1 - exp(-(ages[1] - tzero) * k.bar))
+    w.t.start <- rep(x = NA, times = n.ages)
+    w.t.start[1] <- winf.bar[1]*(1 - exp(-(ages[1] - tzero) * k.bar))
     
     for (a in 2:n.ages)
-      l.t.start[a] <-
-      l.t.start[a - 1]  + (1 - exp (-k.bar)) * (Linf.t[1]  - l.t.start[a - 1])
-    output[, 1] <- l.t.start
+      w.t.start[a] <-
+      w.t.start[a - 1]  + (1 - exp (-k.bar)) * (winf.t[1]  - w.t.start[a - 1])
+    woutput[, 1] <- w.t.start
     for (i in 2:n.years) {
-      output[1, i] <- l.t.start[1]
+      woutput[1, i] <- w.t.start[1]
       for (a in 2:n.ages)
-        output[a, i] <-
-          output[a - 1, i - 1]  + (1 - exp (-k.bar)) * (Linf.t[i]  - output[a - 1, i -
+        woutput[a, i] <-
+          woutput[a - 1, i - 1]  + (1 - exp (-k.bar)) * (winf.t[i]  - woutput[a - 1, i -
                                                                               1])
     }
+    # now scale output based on h.at.age
+    
+
     
    # print(ages.2.use + 5 - 2)
   #  print(dim(output))
-    minsize <- (apply(X=output[ages.2.use[1:4] + 5 - 2,], MARGIN = 1, FUN = min))
-    maxsize <- (apply(X=output[ages.2.use[1:4] + 5 - 2,], MARGIN = 1, FUN = max))
+    minsize <- (apply(X=woutput[ages.2.use[1:4] + 5 - 2,], MARGIN = 1, FUN = min))
+    maxsize <- (apply(X=woutput[ages.2.use[1:4] + 5 - 2,], MARGIN = 1, FUN = max))
     print(maxsize - minsize)
+    
     for (i in 1:4) {
       if (i == 1)
+    
         plot(
           1:n.years + min.year+years.2.trim,
-          output[ages.2.use[i] + 5 - 2, ],
+          df$h.at.age[df$ages == age.ref] * woutput[ages.2.use[i] + 5 - 2, ],
           type = "l",
           lwd = 2,
           ylim = c(10, 70),
@@ -96,7 +117,7 @@ make.plot <-
       
       if (i > 1)
         lines(1:n.years + min.year + years.2.trim,
-              output[ages.2.use[i] + 5 - 2, ],
+              df$h.at.age[df$ages == age.ref]* woutput[ages.2.use[i] + 5 - 2, ],
               lwd = 2,
               col = col[i])
       
@@ -119,7 +140,7 @@ make.plot <-
     
   }
 #######
-plotfilename = "compare_fit_to_obs.pdf"
+plotfilename = "Graphics/compare_fit_to_obs.pdf"
 pdf(file = plotfilename,
     height = 3.5,
     width = 7)
@@ -137,7 +158,7 @@ spc = "YFS"
   ages.2.use <- c(15,20,25,30,35)
   legend.text <-  c("15-20", "20-25","25-30", "30-35")
   col <- plasma(n=16)[c(2,6,10,16)]
-  make.plot(spc, output, thedata, min.year, max.year, small.data, ages.2.use, legend.text, legend.pos = "topright", years.2.trim = 5)
+  make.plot(spc, output, thedata, min.year, max.year, small.data, ages.2.use, legend.text, legend.pos = "topright", years.2.trim = 5, age.ref = 20)
 
 
 spc ="POP"
@@ -152,7 +173,8 @@ spc ="POP"
   small.data <- thedata[unique.ids,]
   ages.2.use <- c(50,60,70,80,90)
   legend.text <-  c("50-60", "60-70","70-80", "80-90")
-  make.plot(spc, output, thedata, min.year, max.year, small.data, ages.2.use, legend.text, legend.pos = "topleft")
+  age.ref <- 70
+  make.plot(spc, output, thedata, min.year, max.year, small.data, ages.2.use, legend.text, legend.pos = "bottomright", age.ref = 70)
 
 dev.off()
 system2("open", args = c("-a Skim.app", plotfilename))
